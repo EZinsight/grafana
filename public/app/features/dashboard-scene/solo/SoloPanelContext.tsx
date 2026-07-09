@@ -4,43 +4,57 @@ import { Trans } from '@grafana/i18n';
 import { LazyLoader, type VizPanel } from '@grafana/scenes';
 import { Box, Spinner } from '@grafana/ui';
 
-import { type DashboardScene } from './DashboardScene';
+import { type DashboardScene } from '../scene/DashboardScene';
+
+import { ViewPanelWrapper } from './ViewPanelWrapper';
 
 export interface SoloPanelContextValue {
   matches: (VizPanel: VizPanel) => boolean;
   matchFound: boolean;
   matchedPanels?: VizPanel[];
+  showControlsPane?: boolean;
 }
 
 export class SoloPanelContextWithPathIdFilter implements SoloPanelContextValue {
   public matchFound = false;
   public matchedPanels: VizPanel[] = [];
+  public showControlsPane = true;
 
   public constructor(public keyPath: string) {}
 
   public matches(panel: VizPanel): boolean {
-    // Check if keyPath is just an old legacy panel id
-    if (/^\d+$/.test(this.keyPath)) {
-      if (`panel-${this.keyPath}` === panel.state.key!) {
-        this.matchFound = true;
-        if (!this.matchedPanels.includes(panel)) {
-          this.matchedPanels.push(panel);
-        }
-        return true;
-      }
+    let found = false;
 
-      return false;
+    // Check if keyPath is just an old legacy panel id
+    if (/^\d+$/.test(this.keyPath) && `panel-${this.keyPath}` === panel.state.key!) {
+      found = true;
+    } else if (this.keyPath === panel.getPathId()) {
+      found = true;
     }
 
-    if (this.keyPath === panel.getPathId()) {
+    if (found) {
       this.matchFound = true;
       if (!this.matchedPanels.includes(panel)) {
         this.matchedPanels.push(panel);
       }
-      return true;
     }
 
-    return false;
+    return found;
+  }
+}
+
+export class SoloPanelContextForPanelEdit implements SoloPanelContextValue {
+  public matchFound = false;
+  public matchedPanels: VizPanel[] = [];
+  public showControlsPane = false;
+
+  public constructor(panel: VizPanel) {
+    this.matchFound = true;
+    this.matchedPanels = [panel];
+  }
+
+  public matches(panel: VizPanel): boolean {
+    return this.matchedPanels[0] === panel;
   }
 }
 
@@ -74,7 +88,9 @@ export function renderMatchingSoloPanels(
           </LazyLoader>
         );
       } else {
-        matches.push(<panel.Component model={panel} key={panel.state.key} />);
+        matches.push(
+          <ViewPanelWrapper panel={panel} key={panel.state.key} showControlsPane={soloPanelContext.showControlsPane} />
+        );
       }
     }
   }
@@ -101,7 +117,7 @@ export function SoloPanelContextProvider({
   );
 }
 
-export interface SoloPanelNotFoundProps {
+interface SoloPanelNotFoundProps {
   /**
    * Controls panel not found error message
    */
@@ -112,7 +128,7 @@ export interface SoloPanelNotFoundProps {
   dashboard: DashboardScene;
 }
 
-export function SoloPanelNotFound({ singleMatch, dashboard }: SoloPanelNotFoundProps) {
+function SoloPanelNotFound({ singleMatch, dashboard }: SoloPanelNotFoundProps) {
   const context = useSoloPanelContext()!;
   const [state, setState] = useState({ matchFound: false, isLoading: true });
 
