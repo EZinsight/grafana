@@ -117,10 +117,16 @@ export class Branding {
   static LoginBackground = LoginBackground;
   static MenuLogo = MenuLogo;
   static LoginBoxBackground = LoginBoxBackground;
-  static AppTitle = 'Grafana';
-  static LoginTitle = 'Welcome to Grafana';
-  static HideEdition = false;
+  static AppTitle = 'EZinsight';
+  static LoginTitle = 'EZinsight';
+  static HideEdition = true;
   static GetLoginSubTitle = (): null | string => {
-    return null;
+    return 'Powered by Grafana';
   };
+  // static AppTitle = 'Grafana';
+  // static LoginTitle = 'Welcome to Grafana';
+  // static HideEdition = false;
+  // static GetLoginSubTitle = (): null | string => {
+  //   return null;
+  // };
 }

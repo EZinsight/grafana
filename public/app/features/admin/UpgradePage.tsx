@@ -27,10 +27,10 @@ export function UpgradePage({ navModel }: Props) {
     <Page navModel={navModel}>
       <Page.Contents>
         <ServerStats />
-        <UpgradeInfo
-          editionNotice="You are running the open-source version of Grafana.
-        You have to install the Enterprise edition in order enable Enterprise features."
-        />
+        {/*<UpgradeInfo*/}
+        {/*  editionNotice="You are running the open-source version of Grafana.*/}
+        {/*You have to install the Enterprise edition in order enable Enterprise features."*/}
+        {/*/>*/}
       </Page.Contents>
     </Page>
   );
