@@ -2,6 +2,7 @@ package frontend
 
 import (
 	"embed"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"html/template"
@@ -53,6 +54,9 @@ type IndexViewData struct {
 	// Feature flag for image-renderer to check support for binding calls
 	RenderBindingSupported bool
 
+	// Feature flag for selecting the Luxon-backed date-time implementation
+	UseLuxon bool
+
 	// Options for controlling the inclusion and behavior of the Meticulous AI session recorder script.
 	MeticulousAIEnabled                   bool
 	MeticulousAIRecordingToken            string
@@ -71,6 +75,9 @@ type IndexViewData struct {
 
 	// Feature flag for controlling behaviour of blocking or alerting legacy api usage from the frontend
 	LegacyAPIMode string
+
+	// Feature flag for gradually rolling out the root /ofrep/v1 OFREP route instead of the namespaced route
+	OFREPRootUrlEnabled bool
 }
 
 // Templates setup.
@@ -139,6 +146,7 @@ func (p *IndexProvider) HandleRequest(writer http.ResponseWriter, request *http.
 
 	ofClient := openfeature.NewDefaultClient()
 	renderBindingSupported, _ := ofClient.BooleanValue(ctx, featuremgmt.FlagReportRenderBinding, false, openfeature.TransactionContext(ctx))
+	useLuxon, _ := ofClient.BooleanValue(ctx, featuremgmt.FlagDatetimeUseLuxon, false, openfeature.TransactionContext(ctx))
 	grafanaAssetSriChecks, _ := ofClient.BooleanValue(ctx, featuremgmt.FlagGrafanaAssetSriChecks, false, openfeature.TransactionContext(ctx))
 	meticulousAIMode, _ := ofClient.StringValue(ctx, featuremgmt.FlagGrafanaMeticulousAIMode, "off", openfeature.TransactionContext(ctx))
 	meticulousAIEnabled := meticulousAIMode == "on-prod-env" || meticulousAIMode == "on-dev-env"
@@ -146,6 +154,7 @@ func (p *IndexProvider) HandleRequest(writer http.ResponseWriter, request *http.
 	reduceBootdataAPI := requestConfig.FullFrontendSettings != nil
 	newPreferencesPage, _ := ofClient.BooleanValue(ctx, featuremgmt.FlagGrafanaNewPreferencesPage, false, openfeature.TransactionContext(ctx))
 	legacyAPIMode, _ := ofClient.StringValue(ctx, featuremgmt.FlagGrafanaFrontendLegacyAPIHandling, "off", openfeature.TransactionContext(ctx))
+	ofrepRootUrlEnabled := ofClient.Boolean(ctx, featuremgmt.FlagGrafanaOfrepRootUrl, false, openfeature.TransactionContext(ctx))
 
 	data := IndexViewData{
 		AppTitle:                              "Grafana",
@@ -158,6 +167,7 @@ func (p *IndexProvider) HandleRequest(writer http.ResponseWriter, request *http.
 		Settings:                              fsSettings,
 		FullSettings:                          requestConfig.FullFrontendSettings, // only populated when FlagFrontendServiceReducedBootDataAPI enabled
 		RenderBindingSupported:                renderBindingSupported,
+		UseLuxon:                              useLuxon,
 		AssetSriChecksEnabled:                 grafanaAssetSriChecks,
 		MeticulousAIEnabled:                   meticulousAIEnabled,
 		MeticulousAIRecordingToken:            p.config.MeticulousAIRecordingToken,
@@ -166,16 +176,22 @@ func (p *IndexProvider) HandleRequest(writer http.ResponseWriter, request *http.
 		NewPreferencesPage:                    newPreferencesPage,
 		BootScript:                            p.bootScript,
 		LegacyAPIMode:                         legacyAPIMode,
+		OFREPRootUrlEnabled:                   ofrepRootUrlEnabled,
 	}
 
-	// TODO -- reevaluate with mt authnz
-	// Check for login_error cookie and set a generic error message.
-	// The backend sets an encrypted cookie on oauth login failures that we can't read
-	// so we just show a generic error if the cookie is present.
+	// Check for login_error cookie. Two writers exist:
+	//  1. OSS HTTPServer writes hex-encoded encrypted values (trySetEncryptedCookie).
+	//  2. The multi-tenant authn-service writes plain-text error messages.
+	// If the value is valid hex, it's the encrypted form and we can't decrypt it here,
+	// so we fall back to the generic OAuthLoginErrorMessage. Otherwise, use the
+	// plain-text value directly.
 	if cookie, err := request.Cookie("login_error"); err == nil && cookie.Value != "" {
 		p.log.Info("request has login_error cookie")
-		// Defaults to a translation key that the frontend will resolve to a localized message
-		data.Settings.LoginError = p.config.OAuthLoginErrorMessage // TODO: get from request config
+		if _, hexErr := hex.DecodeString(cookie.Value); hexErr != nil {
+			data.Settings.LoginError = cookie.Value
+		} else {
+			data.Settings.LoginError = p.config.OAuthLoginErrorMessage
+		}
 
 		cookiePath := "/"
 		if p.config.AppSubURL != "" {

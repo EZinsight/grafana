@@ -1,6 +1,7 @@
 package navtreeimpl
 
 import (
+	"github.com/open-feature/go-sdk/openfeature"
 	"go.opentelemetry.io/otel"
 
 	"github.com/grafana/grafana/pkg/api/dtos"
@@ -207,28 +208,13 @@ func (s *ServiceImpl) getHomeNode(c *contextmodel.ReqContext, prefs *pref.Prefer
 		}
 	}
 
-	homeNode := &navtree.NavLink{
+	return &navtree.NavLink{
 		Text:       "Home",
 		Id:         "home",
 		Url:        homeUrl,
 		Icon:       "home-alt",
 		SortWeight: navtree.WeightHome,
 	}
-	if c.IsSignedIn && c.HasRole(org.RoleAdmin) {
-		ctx := c.Req.Context()
-		if _, exists := s.pluginStore.Plugin(ctx, "grafana-setupguide-app"); exists {
-			children := make([]*navtree.NavLink, 0, 1)
-			// setup guide (a submenu item under Home)
-			children = append(children, &navtree.NavLink{
-				Id:         "home-setup-guide",
-				Text:       "Getting started guide",
-				Url:        "/a/grafana-setupguide-app/getting-started",
-				SortWeight: navtree.WeightHome,
-			})
-			homeNode.Children = children
-		}
-	}
-	return homeNode
 }
 
 func isSupportBundlesEnabled(s *ServiceImpl) bool {
@@ -355,6 +341,20 @@ func (s *ServiceImpl) buildDashboardNavLinks(c *contextmodel.ReqContext) []*navt
 			Icon:     "library-panel",
 		})
 
+		if openfeature.NewDefaultClient().Boolean(c.Req.Context(), featuremgmt.FlagGrafanaDashboardGlobalVariables, false, openfeature.TransactionContext(c.Req.Context())) &&
+			hasAccess(ac.EvalAny(
+				ac.EvalPermission(dashboards.ActionDashboardsCreate),
+				ac.EvalPermission(dashboards.ActionDashboardsWrite),
+			)) {
+			dashboardChildNavs = append(dashboardChildNavs, &navtree.NavLink{
+				Text:     "Variables",
+				SubTitle: "Template variables shared across dashboards, globally or per folder",
+				Id:       "dashboards/variables",
+				Url:      s.cfg.AppSubURL + "/dashboards/variables",
+				Icon:     "brackets-curly",
+			})
+		}
+
 		if s.cfg.PublicDashboardsEnabled {
 			dashboardChildNavs = append(dashboardChildNavs, &navtree.NavLink{
 				Text: "Public dashboards",
@@ -405,14 +405,13 @@ func (s *ServiceImpl) buildAlertNavLinks(c *contextmodel.ReqContext) *navtree.Na
 					Id:       "alert-activity",
 					Url:      s.cfg.AppSubURL + "/alerting/alerts",
 					Icon:     "bell",
-					IsNew:    true,
 				})
 			}
 		} else {
 			// Legacy: Show Alert activity as standalone
 			if alertRulesAccess {
 				alertChildNavs = append(alertChildNavs, &navtree.NavLink{
-					Text: "Alert activity", SubTitle: "Visualize active and pending alerts", Id: "alert-alerts", Url: s.cfg.AppSubURL + "/alerting/alerts", Icon: "bell", IsNew: true,
+					Text: "Alert activity", SubTitle: "Visualize active and pending alerts", Id: "alert-alerts", Url: s.cfg.AppSubURL + "/alerting/alerts", Icon: "bell",
 				})
 			}
 		}
