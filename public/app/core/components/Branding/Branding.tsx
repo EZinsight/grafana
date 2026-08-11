@@ -5,9 +5,10 @@ import { colorManipulator, type GrafanaTheme2, type NavModelItem } from '@grafan
 import { selectors } from '@grafana/e2e-selectors';
 import { reportInteraction } from '@grafana/runtime';
 import { Text, Tooltip, useStyles2, useTheme2 } from '@grafana/ui';
+import ezinsightIconSvg from 'img/ezinsight_icon.svg';
 import g8LoginDarkSvg from 'img/g8_login_dark.svg';
 import g8LoginLightSvg from 'img/g8_login_light.svg';
-import grafanaIconSvg from 'img/grafana_icon.svg';
+// import grafanaIconSvg from 'img/grafana_icon.svg';
 
 export interface BrandComponentProps {
   className?: string;
@@ -15,7 +16,8 @@ export interface BrandComponentProps {
 }
 
 const LoginLogo: FC<BrandComponentProps & { logo?: string }> = ({ className, logo }) => {
-  return <img className={className} src={`${logo ? logo : grafanaIconSvg}`} alt="Grafana" />;
+  return <img className={className} src={`${logo ? logo : ezinsightIconSvg}`} alt="EZinsight" />;
+  // return <img className={className} src={`${logo ? logo : grafanaIconSvg}`} alt="Grafana" />;
 };
 
 const LoginBackground: FC<BrandComponentProps> = ({ className, children }) => {
@@ -51,7 +53,8 @@ const LoginBackground: FC<BrandComponentProps> = ({ className, children }) => {
 };
 
 const MenuLogo: FC<BrandComponentProps> = ({ className }) => {
-  return <img className={className} src={grafanaIconSvg} alt="Grafana" />;
+  return <img className={className} src={ezinsightIconSvg} alt="EZinsight" />;
+  // return <img className={className} src={grafanaIconSvg} alt="Grafana" />;
 };
 
 export function HomeLogo({ homeNav, onClick }: { homeNav?: NavModelItem; onClick?: () => void }) {

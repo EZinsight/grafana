@@ -1,3 +1,10 @@
+# EZinsight Stack
+/.idea/
+/.vscode/
+*.iml
+bin/
+
+# Grafana Stack
 node_modules
 npm-debug.log
 yarn-error.log
